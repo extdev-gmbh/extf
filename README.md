@@ -134,7 +134,7 @@ Releases are built by GitHub Actions and published to PyPI by trusted publishing
 provenance and a CycloneDX SBOM attested:
 
 ```bash
-gh attestation verify extf-0.1.0-py3-none-any.whl --repo extdev-gmbh/extf
+gh attestation verify extf-0.1.1-py3-none-any.whl --repo extdev-gmbh/extf
 ```
 
 ## License

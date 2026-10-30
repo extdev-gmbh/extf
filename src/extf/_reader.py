@@ -278,14 +278,19 @@ def parse_amount(value: str, *, signed: bool = False) -> Decimal:
     """``1234,56`` or ``1.234,56`` (``-`` in front if ``signed``) as a Decimal.
 
     :class:`ValueError` for anything else, and for an amount of 15 digits or more before
-    the comma."""
+    the comma. Zero is never negative: ``-0,00`` is ``0.00``."""
     text = value.strip()
     if not (_SIGNED_AMOUNT if signed else _AMOUNT).match(text):
         raise ValueError(f"not an amount with a decimal comma: {value[:40]!r}")
     amount = Decimal(text.replace(".", "").replace(",", "."))
-    if abs(amount) >= AMOUNT_LIMIT:
+    if amount.copy_abs() >= AMOUNT_LIMIT:
         raise ValueError(f"amount out of range: {text[:40]}")
-    return amount
+    return amount if amount else amount.copy_abs()
+
+
+def _negated(amount: Decimal) -> Decimal:
+    """``amount`` on the other side, exact in any decimal context, and zero stays unsigned."""
+    return amount.copy_negate() if amount else amount
 
 
 def _parse_day(value: str, what: str) -> date:
@@ -709,7 +714,7 @@ def _marked(row: list[str], position: int, marks: tuple[int, int], what: str) ->
         if amount == 0:
             return amount
         raise ValueError(f"{what} {text} is marked neither S nor H")
-    return amount if debit_mark else amount.copy_negate()
+    return amount if debit_mark else _negated(amount)
 
 
 def read_trial_balance(
@@ -759,7 +764,7 @@ def read_trial_balance(
                 if marker not in ("", "S", "H"):
                     raise ValueError(f"S/H {marker!r} is neither S nor H")
                 if marker == "H":
-                    balance = balance.copy_negate()
+                    balance = _negated(balance)
             opening_balance = None
             if opening is not None and opening_marks is not None:
                 opening_balance = _marked(row, opening, opening_marks, f"EB-Wert of account {number}")

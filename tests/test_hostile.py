@@ -7,7 +7,7 @@ import tracemalloc
 from collections.abc import Callable, Iterator
 from dataclasses import replace
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from typing import Any
 
 import pytest
@@ -515,3 +515,46 @@ def test_labels_are_refused_on_writing_or_read_back_as_written(labels: dict[str,
         assert caught.errors and all("read back as UTF-8" in error.message for error in caught.errors)
         return
     assert {label.number: label.label for label in extf.read_account_labels(written)[1]} == labels
+
+
+#: The amounts a list can hold, in cents; zero and the extremes are the cases that matter.
+_CENTS = st.one_of(st.sampled_from([0, 1, 10**16 - 1]), st.integers(0, 10**16 - 1))
+
+
+def _rows_of_a_balance(amount: str) -> dict[str, tuple[bytes, bool]]:
+    """The ways to write ``amount`` in a trial balance, with whether each makes it a credit."""
+    return {
+        "debit column": (f"Konto;Saldo Soll;Saldo Haben\n1200;{amount};\n".encode(), False),
+        "credit column": (f"Konto;Saldo Soll;Saldo Haben\n1200;;{amount}\n".encode(), True),
+        "S/H debit": (f"Konto;Saldo;S/H\n1200;{amount};S\n".encode(), False),
+        "S/H credit": (f"Konto;Saldo;S/H\n1200;{amount};H\n".encode(), True),
+        "signed": (f"Konto;Saldo;S/H\n1200;-{amount};\n".encode(), True),
+        "signed and credit": (f"Konto;Saldo;S/H\n1200;-{amount};H\n".encode(), False),
+        "marked debit": (f"Konto;Saldo;S;H\n1200;{amount};S;\n".encode(), False),
+        "marked credit": (f"Konto;Saldo;S;H\n1200;{amount};;H\n".encode(), True),
+    }
+
+
+@settings(max_examples=200, deadline=None)
+@given(cents=_CENTS)
+def test_an_amount_read_is_exact_and_no_negative_zero_in_any_decimal_context(cents: int) -> None:
+    whole, rest = divmod(cents, 100)
+    text = f"{whole},{rest:02d}"
+    magnitude = Decimal(f"{whole}.{rest:02d}")
+
+    def expected(credit: bool) -> Decimal:
+        return magnitude.copy_negate() if credit and cents else magnitude
+
+    def assert_same(read: Decimal | None, wanted: Decimal) -> None:
+        # The tuple tells -0.00 from 0.00 and 1.00 from 1.0, which == does not.
+        assert read is not None and read.as_tuple() == wanted.as_tuple()
+
+    with localcontext(prec=6):
+        assert_same(extf.parse_amount(text), magnitude)
+        assert_same(extf.parse_amount(text, signed=True), magnitude)
+        assert_same(extf.parse_amount(f"-{text}", signed=True), expected(True))
+        for data, credit in _rows_of_a_balance(text).values():
+            assert_same(extf.read_trial_balance(data)[0].balance, expected(credit))
+        for marks, credit in ((f"{text};S;", False), (f"{text};;H", True)):
+            line = extf.read_trial_balance(f"Konto;EB-Wert;S;H;Saldo;S;H\n1200;{marks};1,00;S;\n".encode())[0]
+            assert_same(line.opening, expected(credit))

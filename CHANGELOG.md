@@ -6,8 +6,34 @@ a breaking change to it needs a major version and an entry here.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-30
+
+### Fixed
+
+- A zero amount is never a negative zero: `read_trial_balance` returned `Decimal('-0.00')` for
+  `0,00` marked as credit, in the column `S/H` and in the columns `S` and `H` of `Saldo` and
+  `EB-Wert`, and `parse_amount` for `-0,00`, which also reached `read_trial_balance`. Both now
+  return `Decimal('0.00')`. The two compare equal, so sums were right, but printed as `-0.00`.
+- `parse_amount` checks the range in any decimal context of the caller: with a low precision it
+  refused amounts just below the limit, and with `Inexact` trapped it raised that instead.
+
+## [0.1.0] - 2026-10-30
+
+First release.
+
 ### Added
 
+- Readers: `read_bookings` (category 21), `read_account_labels` (20), `read_personal_accounts`
+  (16 and the Kanzlei-Rechnungswesen list), `read_trial_balance`, `read_fixed_assets`, with
+  `is_datev_format`, `parse_amount` and `fiscal_year_end`.
+- Writers: `write_bookings`, `write_account_labels`, `write_personal_accounts` from the neutral
+  `ExportHeader`, `Record`, `Label` and `Personal`, byte-deterministic and validated;
+  `validate`, `clean_text`, `document_number`, `amount_de`. `validate` refuses the tax keys `20`
+  to `29`, which `read_bookings` takes as the old notation of a Generalumkehr; a `Record` states
+  one with `reversal=True`.
+- `ExtfError` and its subclass `DatevFormatError`, each naming every bad line (`LineError`).
+- Limits on hostile input: `MAX_INPUT_BYTES`, `MAX_LINES`, `MAX_COLUMNS`, `MAX_FIELD_LENGTH`,
+  format versions 500 to 700, refusal of UTF-8 where Windows-1252 is due.
 - `MAX_HEADER_SEARCH`, the bound on the search for the header row of a CSV list.
 
 ### Changed
@@ -39,21 +65,3 @@ a breaking change to it needs a major version and an entry here.
   about 0.3 s and 460 MiB instead of up to 1.4 s and 980 MiB, and no file accepted so far is
   refused. Its message changes to `the line has more than 512 columns or a field of more than 4096
   characters`, in place of the message for too many columns, too many lines or unreadable CSV.
-
-## [0.1.0] - 2026-10-30
-
-First release.
-
-### Added
-
-- Readers: `read_bookings` (category 21), `read_account_labels` (20), `read_personal_accounts`
-  (16 and the Kanzlei-Rechnungswesen list), `read_trial_balance`, `read_fixed_assets`, with
-  `is_datev_format`, `parse_amount` and `fiscal_year_end`.
-- Writers: `write_bookings`, `write_account_labels`, `write_personal_accounts` from the neutral
-  `ExportHeader`, `Record`, `Label` and `Personal`, byte-deterministic and validated;
-  `validate`, `clean_text`, `document_number`, `amount_de`. `validate` refuses the tax keys `20`
-  to `29`, which `read_bookings` takes as the old notation of a Generalumkehr; a `Record` states
-  one with `reversal=True`.
-- `ExtfError` and its subclass `DatevFormatError`, each naming every bad line (`LineError`).
-- Limits on hostile input: `MAX_INPUT_BYTES`, `MAX_LINES`, `MAX_COLUMNS`, `MAX_FIELD_LENGTH`,
-  format versions 500 to 700, refusal of UTF-8 where Windows-1252 is due.

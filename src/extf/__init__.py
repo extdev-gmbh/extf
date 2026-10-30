@@ -54,7 +54,7 @@ from extf._writer import (
     write_personal_accounts,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "ACCOUNT_LABELS",

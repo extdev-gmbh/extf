@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, Inexact, localcontext
 
 import pytest
 import synthetic as f
@@ -281,6 +281,45 @@ def test_a_record_of_a_fiscal_year_ending_after_year_9999_is_a_bad_line() -> Non
     with pytest.raises(DatevFormatError, match=r"line 3: the fiscal year starting on 9999-07-01 would end after year 9999") as caught:
         extf.read_bookings(data, "stapel.csv")
     assert type(caught.value) is DatevFormatError
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        b"Konto;Beschriftung;Saldo;S/H\r\n1200;Bank;0,00;H\r\n",
+        b"Konto;Saldo;S/H\n1200;-0,00;\n",
+        b"Konto;Saldo;S/H\n1200;-0,00;S\n",
+        b"Konto;Saldo;S/H\n1200;-0,00;H\n",
+        b"Konto;Saldo;S;H\n1200;0,00;;H\n",
+        b"Konto;Saldo Soll;Saldo Haben\n1200;0,00;0,00\n",
+        b"Konto;Saldo Soll;Saldo Haben\n1200;;0,00\n",
+    ],
+)
+def test_a_zero_balance_is_never_a_negative_zero(data: bytes) -> None:
+    assert str(extf.read_trial_balance(data)[0].balance) == "0.00"
+
+
+def test_a_zero_opening_balance_marked_as_credit_is_no_negative_zero() -> None:
+    line = extf.read_trial_balance(b"Konto;EB-Wert;S;H;Saldo;S;H\n1200;0,00;;H;5,00;S;\n")[0]
+    assert (str(line.opening), str(line.balance)) == ("0.00", "5.00")
+
+
+def test_a_negative_amount_marked_as_credit_is_a_debit() -> None:
+    assert extf.read_trial_balance(b"Konto;Saldo;S/H\n1200;-10,00;H\n")[0].balance == Decimal("10.00")
+
+
+def test_parse_amount_has_no_negative_zero() -> None:
+    assert str(extf.parse_amount("-0,00", signed=True)) == "0.00"
+    assert str(extf.parse_amount("-0", signed=True)) == "0"
+    assert str(extf.parse_amount("-0,01", signed=True)) == "-0.01"
+
+
+def test_parse_amount_refuses_in_any_decimal_context() -> None:
+    with localcontext(prec=6) as context:
+        context.traps[Inexact] = True
+        assert str(extf.parse_amount("99.999.999.999.999,99")) == "99999999999999.99"
+        with pytest.raises(ValueError, match="out of range"):
+            extf.parse_amount("100.000.000.000.000,00")
 
 
 def test_parse_amount() -> None:
