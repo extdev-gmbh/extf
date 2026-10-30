@@ -1,0 +1,5 @@
+"EXTF";700;16;"Debitoren/Kreditoren";5;20260803091500250;;"XT";"extf tests";"";1234567;10001;20260101;4;;;"Debitoren/Kreditoren";"";;;;"";;"";;;"03";;;"";""
+Konto;Name (Adressatentyp Unternehmen);Unternehmensgegenstand;Name (Adressatentyp natürl. Person);Vorname (Adressatentyp natürl. Person);Name (Adressatentyp keine Angabe);Adressatentyp;Kurzbezeichnung;EU-Land;EU-UStID
+10028;"Nordlicht Handel AG";"";"";"";"";"2";"Nordlicht Hande";"AT";"U00000000"
+70049;"Muster Service GmbH";"";"";"";"";"2";"Muster Service ";"";""
+70050;"Ein Lieferant mit einem Namen, der länger ist als ";"";"";"";"";"2";"Ein Lieferant m";"";""

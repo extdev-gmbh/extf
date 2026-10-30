@@ -1,0 +1,75 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "extf"
+dynamic = ["version"]
+description = "Read and write files in the DATEV format (EXTF): bookings, account labels, personal accounts."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.12"
+dependencies = []
+keywords = ["datev", "extf", "accounting", "buchungsstapel"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Accounting",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+dev = [
+    "hypothesis==6.170.14",
+    "mypy==2.4.1",
+    "pip-audit==2.10.1",
+    "pytest==9.2.0",
+    "ruff==0.17.3",
+]
+
+[project.urls]
+Source = "https://github.com/extdev-gmbh/extf"
+Changelog = "https://github.com/extdev-gmbh/extf/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "extf.__version__" }
+
+[tool.setuptools.package-data]
+extf = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = ["ignore:The database setting is not configured"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests", "ci"]
+mypy_path = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["public_tree"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 160
+target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # German text and typography are intended
+
+[tool.ruff.lint.isort]
+known-third-party = ["synthetic"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S106", "S603", "S607"]
+"ci/*" = ["S603", "S607"]
+"src/extf/_writer.py" = ["S101"]  # internal invariants, checked by validate first
+"src/extf/_reader.py" = ["S101"]

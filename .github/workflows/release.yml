@@ -1,0 +1,141 @@
+# Package of a release: on a release tag vX.Y.Z, run the tests for the tagged commit
+# (test.yml), build the sdist and the wheel, attest their provenance (SLSA) and their SBOM
+# (CycloneDX), attach them to a GitHub release, and publish them to PyPI by trusted publishing.
+#
+# Manual fallback, should GitHub not start the workflow for a pushed tag: Actions → release →
+# Run workflow, "Use workflow from" the tag and the same tag as input `tag`. Anything else is
+# refused (job `tag`): the run must be on the tag itself.
+#
+# The environment `pypi` needs no setup: GitHub creates it on the first run that names it.
+#
+# Supply chain: every action is pinned to a full commit SHA (the comment names its version;
+# Dependabot proposes updates, which go through GitLab). PyPI takes no token: it trusts this
+# workflow file of this repository in the environment `pypi` (OIDC, id-token: write), and
+# the publish action adds PEP 740 attestations. `gh attestation verify` in the README checks
+# that a file was built here.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag vX.Y.Z (choose the same tag under \"Use workflow from\")"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Existing release tag
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "$TAG is not a release tag vX.Y.Z" >&2
+            exit 1
+          fi
+          if [ "$GITHUB_REF" != "refs/tags/$TAG" ]; then
+            echo "run this workflow from the tag $TAG (\"Use workflow from\" → Tags → $TAG), not from $GITHUB_REF" >&2
+            exit 1
+          fi
+
+  test:
+    needs: tag
+    uses: ./.github/workflows/test.yml
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.ref }}  # the release tag (job `tag`)
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          python -m pip install --disable-pip-version-check "build==1.6.1" "cyclonedx-bom==7.6.0"
+          python -m build
+          version="${GITHUB_REF_NAME#v}"
+          test -f "dist/extf-$version.tar.gz"
+          test -f "dist/extf-$version-py3-none-any.whl"
+
+      - name: SBOM
+        run: |
+          python -m venv /tmp/sbom
+          /tmp/sbom/bin/pip install --disable-pip-version-check dist/*.whl
+          cyclonedx-py environment --output-format JSON --output-file sbom.cdx.json /tmp/sbom
+
+      - name: Attest provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: dist/*
+          sbom-path: sbom.cdx.json
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          if-no-files-found: error
+
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/extf/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+
+  github-release:
+    needs: pypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes artifacts/extf-* artifacts/sbom.cdx.json

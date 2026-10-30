@@ -1,0 +1,3 @@
+# The tests of the sdist need their helpers and golden files too.
+graft tests
+global-exclude __pycache__ *.py[cod]

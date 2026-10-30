@@ -1,0 +1,8 @@
+"EXTF";700;20;"Kontenbeschriftungen";3;20260803091500250;;"XT";"extf tests";"";1234567;10001;20260101;4;;;"Kontenbeschriftungen";"";;;;"";;"";;;"03";;;"";""
+Konto;Kontenbeschriftung;Sprach-ID;Kontenbeschriftung lang
+1200;"Bank";"de-DE";"Bank"
+1201;"Tagesgeld";"de-DE";"Tagesgeld"
+4806;"Wartungskosten für Hard- und Software";"de-DE";"Wartungskosten für Hard- und Software"
+4970;"Nebenkosten des Geldverkehrs";"de-DE";"Nebenkosten des Geldverkehrs"
+8400;"Erlöse 19% USt";"de-DE";"Erlöse 19% USt"
+8401;"Eine sehr lange Beschriftung über mehr a";"de-DE";"Eine sehr lange Beschriftung über mehr als vierzig Zeichen hinaus"

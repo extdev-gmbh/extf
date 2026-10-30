@@ -1,0 +1,9 @@
+extf
+Copyright 2026 ext.dev GmbH
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+extf has no runtime dependencies.
+
+DATEV is a trademark of DATEV eG. extf reads and writes files in the DATEV format; it is
+not affiliated with or endorsed by DATEV eG.
