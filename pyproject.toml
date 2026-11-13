@@ -22,7 +22,7 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-    "hypothesis==6.170.14",
+    "hypothesis==6.170.15",
     "mypy==2.4.1",
     "pip-audit==2.10.1",
     "pytest==9.2.0",
